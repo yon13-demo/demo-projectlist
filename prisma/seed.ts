@@ -1,4 +1,4 @@
-import { PrismaClient, Role, ProjectStatus, Priority } from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
@@ -13,7 +13,7 @@ async function main() {
       name: "Alex Rivera",
       email: "admin@siteledger.dev",
       passwordHash,
-      role: Role.ADMIN,
+      role: "ADMIN",
     },
   });
 
@@ -24,7 +24,7 @@ async function main() {
       name: "Priya Nair",
       email: "manager@siteledger.dev",
       passwordHash,
-      role: Role.MANAGER,
+      role: "MANAGER",
     },
   });
 
@@ -35,7 +35,7 @@ async function main() {
       name: "Jordan Lee",
       email: "member@siteledger.dev",
       passwordHash,
-      role: Role.MEMBER,
+      role: "MEMBER",
     },
   });
 
@@ -44,32 +44,32 @@ async function main() {
       id: "PRJ-101",
       title: "Riverside Tower — Electrical Rough-In",
       client: "Meridian Development",
-      status: ProjectStatus.IN_PROGRESS,
-      priority: Priority.HIGH,
+      status: "IN_PROGRESS" as const,
+      priority: "HIGH" as const,
       progressPercentage: 62,
     },
     {
       id: "PRJ-102",
       title: "Oakwood School Roof Replacement",
       client: "Oakwood ISD",
-      status: ProjectStatus.REVIEW,
-      priority: Priority.MEDIUM,
+      status: "REVIEW" as const,
+      priority: "MEDIUM" as const,
       progressPercentage: 88,
     },
     {
       id: "PRJ-103",
       title: "Harbor Logistics Warehouse Fit-Out",
       client: "Harbor Logistics Co.",
-      status: ProjectStatus.PENDING,
-      priority: Priority.LOW,
+      status: "PENDING" as const,
+      priority: "LOW" as const,
       progressPercentage: 0,
     },
     {
       id: "PRJ-104",
       title: "Cedar Street Duplex Renovation",
       client: "Private Owner",
-      status: ProjectStatus.COMPLETED,
-      priority: Priority.MEDIUM,
+      status: "COMPLETED" as const,
+      priority: "MEDIUM" as const,
       progressPercentage: 100,
     },
   ];

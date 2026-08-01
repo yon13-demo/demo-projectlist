@@ -2,7 +2,9 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
-import type { Role } from "@prisma/client";
+
+// Declare Role locally to avoid depending on the generated @prisma/client
+export type Role = "ADMIN" | "MANAGER" | "MEMBER";
 
 declare module "next-auth" {
   interface Session {
@@ -35,7 +37,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const valid = await bcrypt.compare(password, user.passwordHash);
         if (!valid) return null;
 
-        return { id: user.id, name: user.name, email: user.email, role: user.role };
+        return { id: user.id, name: user.name, email: user.email, role: user.role as Role };
       },
     }),
   ],

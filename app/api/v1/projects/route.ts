@@ -1,8 +1,17 @@
+// Opt out of static generation — these routes always need live DB/KV access.
+export const dynamic = "force-dynamic";
+
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { auth, requireRole } from "@/lib/auth";
-import { ProjectStatus, Priority } from "@prisma/client";
+
+// Using string literals instead of @prisma/client enums so the route
+// compiles without a generated Prisma client in CI/build environments.
+const PROJECT_STATUSES = ["PENDING", "IN_PROGRESS", "REVIEW", "COMPLETED"] as const;
+const PRIORITIES = ["LOW", "MEDIUM", "HIGH"] as const;
+type ProjectStatus = (typeof PROJECT_STATUSES)[number];
+type Priority = (typeof PRIORITIES)[number];
 
 // GET /api/v1/projects?status=IN_PROGRESS&search=acme
 export async function GET(req: NextRequest) {
@@ -17,7 +26,7 @@ export async function GET(req: NextRequest) {
 
   const where: Record<string, unknown> = {};
   if (status && status !== "ALL") {
-    if (!Object.values(ProjectStatus).includes(status as ProjectStatus)) {
+    if (!PROJECT_STATUSES.includes(status as ProjectStatus)) {
       return NextResponse.json({ error: "Invalid status filter" }, { status: 400 });
     }
     where.status = status;
@@ -42,7 +51,8 @@ export async function GET(req: NextRequest) {
     },
   });
 
-  const shaped = projects.map((p) => ({
+  type ProjectRow = (typeof projects)[number];
+  const shaped = projects.map((p: ProjectRow) => ({
     id: p.id,
     title: p.title,
     client: p.client,
@@ -51,7 +61,7 @@ export async function GET(req: NextRequest) {
     progressPercentage: p.progressPercentage,
     createdAt: p.createdAt,
     taskCount: p.tasks.length,
-    completedTaskCount: p.tasks.filter((t) => t.isCompleted).length,
+    completedTaskCount: p.tasks.filter((t: { isCompleted: boolean }) => t.isCompleted).length,
     activeWorkerCount: p.workSessions.length,
   }));
 
@@ -62,13 +72,13 @@ const createProjectSchema = z.object({
   id: z.string().min(3).regex(/^[A-Z0-9-]+$/, "Use an uppercase code like PRJ-101"),
   title: z.string().min(1),
   client: z.string().min(1),
-  status: z.nativeEnum(ProjectStatus).optional(),
-  priority: z.nativeEnum(Priority).optional(),
+  status: z.enum(PROJECT_STATUSES).optional(),
+  priority: z.enum(PRIORITIES).optional(),
 });
 
 // POST /api/v1/projects — Admin/Manager only
 export async function POST(req: NextRequest) {
-  const check = await requireRole(["ADMIN", "MANAGER"]);
+  const check = await requireRole(["ADMIN" as const, "MANAGER" as const]);
   if (!check.ok) {
     return NextResponse.json({ error: check.message }, { status: check.status });
   }

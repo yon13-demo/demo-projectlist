@@ -1,3 +1,6 @@
+// Opt out of static generation — these routes always need live DB/KV access.
+export const dynamic = "force-dynamic";
+
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
@@ -39,11 +42,12 @@ export async function GET(req: NextRequest) {
     include: { project: { select: { title: true, client: true } } },
   });
 
-  const totalMins = sessions.reduce((sum, s) => sum + (s.durationMins ?? 0), 0);
+  type SessionRow = (typeof sessions)[number];
+  const totalMins = sessions.reduce((sum: number, s: SessionRow) => sum + (s.durationMins ?? 0), 0);
 
   if (format === "csv") {
     const header = "Project,Client,Clock In,Clock Out,Duration (mins)";
-    const rows = sessions.map((s) =>
+    const rows = sessions.map((s: SessionRow) =>
       [
         s.project.title,
         s.project.client,
