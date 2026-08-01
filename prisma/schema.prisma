@@ -1,0 +1,89 @@
+// ============================================================================
+// Prisma Schema — Project Management & Live Time Tracking System
+// ============================================================================
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("POSTGRES_PRISMA_URL")
+  directUrl = env("POSTGRES_URL_NON_POOLING")
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  MEMBER
+}
+
+enum ProjectStatus {
+  PENDING
+  IN_PROGRESS
+  REVIEW
+  COMPLETED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum SessionStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+}
+
+model User {
+  id           String        @id @default(uuid())
+  name         String
+  email        String        @unique
+  passwordHash String
+  role         Role          @default(MEMBER)
+  createdAt    DateTime      @default(now())
+  workSessions WorkSession[]
+  tasks        Task[]
+}
+
+model Project {
+  id                 String        @id // e.g., 'PRJ-101'
+  title              String
+  client             String
+  status             ProjectStatus @default(IN_PROGRESS)
+  priority           Priority      @default(MEDIUM)
+  progressPercentage Int           @default(0)
+  createdAt          DateTime      @default(now())
+  tasks              Task[]
+  workSessions       WorkSession[]
+}
+
+model Task {
+  id             String   @id @default(uuid())
+  projectId      String
+  assignedUserId String?
+  title          String
+  isCompleted    Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  project      Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignedUser User?   @relation(fields: [assignedUserId], references: [id], onDelete: SetNull)
+}
+
+model WorkSession {
+  id            String        @id @default(uuid())
+  userId        String
+  projectId     String
+  clockIn       DateTime      @default(now())
+  clockOut      DateTime?
+  durationMins  Int?          @default(0)
+  qrPayloadUsed String
+  deviceInfo    String?
+  status        SessionStatus @default(ACTIVE)
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+}
