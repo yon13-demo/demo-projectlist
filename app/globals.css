@@ -1,0 +1,77 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  Design tokens — "Site Ledger" theme.
+  Signature idea: the whole app reads like a foreman's logbook crossed
+  with a modern ops console. Timestamps and durations always render in
+  the monospace "data" face so a glance at a column of numbers feels
+  like reading a ledger, not a generic dashboard.
+*/
+:root {
+  --color-bg: 250 249 246;          /* #FAF9F6 warm paper */
+  --color-surface: 255 255 255;
+  --color-surface-2: 241 239 233;
+  --color-border: 224 220 210;
+  --color-text: 30 27 22;           /* near-black warm ink */
+  --color-text-muted: 108 101 88;
+  --color-accent: 199 90 40;        /* #C75A28 job-site amber/rust */
+  --color-accent-ink: 255 255 255;
+  --color-success: 60 122 84;       /* #3C7A54 */
+  --color-warning: 191 138 30;      /* #BF8A1E */
+  --color-danger: 176 58 46;        /* #B03A2E */
+  --font-display: "Fraunces", ui-serif, Georgia, serif;
+  --font-body: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, "SFMono-Regular", monospace;
+}
+
+.dark {
+  --color-bg: 18 17 15;             /* #12110F */
+  --color-surface: 26 24 21;
+  --color-surface-2: 34 32 28;
+  --color-border: 51 47 41;
+  --color-text: 240 237 230;
+  --color-text-muted: 163 155 141;
+  --color-accent: 224 122 65;       /* brighter rust for dark bg */
+  --color-accent-ink: 20 14 8;
+  --color-success: 90 168 128;
+  --color-warning: 214 165 74;
+  --color-danger: 214 99 87;
+}
+
+body {
+  background-color: rgb(var(--color-bg));
+  color: rgb(var(--color-text));
+  font-family: var(--font-body);
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+.font-data {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Progress bar fill transition */
+.progress-fill {
+  transition: width 500ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Subtle QR-grid texture used behind the scanner modal + empty states */
+.qr-grid-bg {
+  background-image:
+    linear-gradient(rgb(var(--color-border) / 0.5) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(var(--color-border) / 0.5) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
