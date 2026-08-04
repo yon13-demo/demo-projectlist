@@ -21,7 +21,6 @@ export async function GET(req: NextRequest) {
     where.userId = userId;
   }
 
-  // ✅ Diubah dari prisma.workSession menjadi prisma.session
   const sessions = await prisma.session.findMany({
     where,
     orderBy: { clockIn: "desc" },
