@@ -12,7 +12,7 @@ export async function GET() {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const activeSession = await prisma.workSession.findFirst({
+  const activeSession = await prisma.session.findFirst({
     where: { userId: session.user.id, status: "ACTIVE" },
     include: { project: { select: { id: true, title: true, client: true } } },
   });

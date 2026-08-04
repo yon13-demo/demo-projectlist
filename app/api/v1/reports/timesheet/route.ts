@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
     };
   }
 
-  const sessions = await prisma.workSession.findMany({
+  const sessions = await prisma.session.findMany({
     where,
     orderBy: { clockIn: "desc" },
     include: { project: { select: { title: true, client: true } } },

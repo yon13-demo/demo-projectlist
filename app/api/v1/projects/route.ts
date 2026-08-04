@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
     client: p.client,
     status: p.status,
     priority: p.priority,
-    progressPercentage: ("progressPercentage" in p ? (p as any).progressPercentage : Math.round((p.tasks.filter((t:any)=>t.isCompleted).length/Math.max(p.tasks.length,1))*100)),
+    progressPercentage: p.progressPercentage,
     createdAt: p.createdAt,
     taskCount: p.tasks.length,
     completedTaskCount: p.tasks.filter((t: { isCompleted: boolean }) => t.isCompleted).length,

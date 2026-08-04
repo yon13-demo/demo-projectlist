@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
   }
 
   // ---- 5. Prevent overlapping active sessions for this user ----------
-  const existingActive = await prisma.workSession.findFirst({
+  const existingActive = await prisma.session.findFirst({
     where: { userId, status: "ACTIVE" },
   });
   if (existingActive) {
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
   }
 
   // ---- 6. Create the session ------------------------------------------
-  const workSession = await prisma.workSession.create({
+  const workSession = await prisma.session.create({
     data: {
       userId,
       projectId: project.id,

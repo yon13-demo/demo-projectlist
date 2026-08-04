@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
   }
   const { completedTaskIds } = parsed.data;
 
-  const activeSession = await prisma.workSession.findFirst({
+  const activeSession = await prisma.session.findFirst({
     where: { userId, status: "ACTIVE" },
   });
   if (!activeSession) {
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
   );
 
   const [updatedSession] = await prisma.$transaction([
-    prisma.workSession.update({
+    prisma.session.update({
       where: { id: activeSession.id },
       data: { clockOut, durationMins, status: "COMPLETED" },
     }),
