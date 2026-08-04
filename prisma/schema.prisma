@@ -15,12 +15,17 @@ model User {
 }
 
 model Project {
-  id           String    @id @default(uuid())
-  name         String
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  tasks        Task[]
-  workSessions Session[]
+  id                 String    @id @default(uuid())
+  name               String    @default("New Project")
+  title              String    @default("Untitled")
+  client             String?
+  status             String    @default("ACTIVE")
+  priority           String    @default("MEDIUM")
+  progressPercentage Int       @default(0)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  tasks              Task[]
+  workSessions       Session[]
 }
 
 model Task {
