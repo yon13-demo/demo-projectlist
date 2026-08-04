@@ -1,82 +1,103 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Search } from "lucide-react";
-import ProjectCard from "./ProjectCard";
-import type { ProjectSummary, ProjectStatus } from "@/lib/types";
+import { useState } from "react";
 
-const FILTERS: { label: string; value: ProjectStatus | "ALL" }[] = [
-  { label: "All", value: "ALL" },
-  { label: "In progress", value: "IN_PROGRESS" },
-  { label: "Review", value: "REVIEW" },
-  { label: "Completed", value: "COMPLETED" },
-];
-
-interface ProjectListProps {
-  projects: ProjectSummary[];
-  onSelectProject?: (project: ProjectSummary) => void;
+interface Task {
+  id: string;
+  isCompleted: boolean;
 }
 
-export default function ProjectList({ projects, onSelectProject }: ProjectListProps) {
-  const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<ProjectStatus | "ALL">("ALL");
+interface Project {
+  id: string;
+  title: string;
+  client: string | null;
+  status: string;
+  priority: string;
+  progressPercentage: number;
+  taskCount: number;
+  completedTaskCount: number;
+}
 
-  const filtered = useMemo(() => {
-    return projects.filter((p) => {
-      const matchesStatus = filter === "ALL" || p.status === filter;
-      const q = query.trim().toLowerCase();
-      const matchesQuery =
-        !q ||
-        p.title.toLowerCase().includes(q) ||
-        p.client.toLowerCase().includes(q) ||
-        p.id.toLowerCase().includes(q);
-      return matchesStatus && matchesQuery;
-    });
-  }, [projects, query, filter]);
+interface ProjectListProps {
+  projects: Project[];
+  onOpenScanner: () => void;
+}
+
+export default function ProjectList({ projects, onOpenScanner }: ProjectListProps) {
+  const [selectedQr, setSelectedQr] = useState<string | null>(null);
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative w-full sm:max-w-xs">
-          <Search
-            size={16}
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
-          />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search projects or clients…"
-            className="w-full rounded-md border border-border bg-surface py-2 pl-9 pr-3 text-sm outline-none focus:border-accent"
-          />
-        </div>
-
-        <div className="flex gap-1 overflow-x-auto">
-          {FILTERS.map((f) => (
-            <button
-              key={f.value}
-              onClick={() => setFilter(f.value)}
-              className={`whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                filter === f.value
-                  ? "bg-accent text-accent-ink"
-                  : "text-text-muted hover:bg-surface-2"
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-semibold text-gray-800 dark:text-white">Daftar Proyek & Aktivitas</h2>
+        <button
+          onClick={onOpenScanner}
+          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-blue-700 transition"
+        >
+          📷 Scan / Input QR Clock-In
+        </button>
       </div>
 
-      {filtered.length === 0 ? (
-        <div className="qr-grid-bg rounded-lg border border-dashed border-border py-16 text-center">
-          <p className="font-display text-lg">No projects match that search</p>
-          <p className="text-sm text-text-muted">Try a different keyword or filter.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {filtered.map((project) => (
-            <ProjectCard key={project.id} project={project} onClick={onSelectProject} />
-          ))}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {projects.map((p) => (
+          <div key={p.id} className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <div className="flex items-start justify-between">
+              <div>
+                <span className="text-xs font-mono font-semibold text-blue-600 dark:text-blue-400">{p.id}</span>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">{p.title}</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Client: {p.client ?? "-"}</p>
+              </div>
+              <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                p.status === "COMPLETED" ? "bg-green-100 text-green-800" : "bg-blue-100 text-blue-800"
+              }`}>
+                {p.status}
+              </span>
+            </div>
+
+            {/* Progress Bar Section */}
+            <div className="mt-4">
+              <div className="flex justify-between text-xs font-medium text-gray-600 dark:text-gray-300">
+                <span>Progress Kerja</span>
+                <span>{p.progressPercentage}% ({p.completedTaskCount}/{p.taskCount} Tasks)</span>
+              </div>
+              <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+                <div
+                  className="h-full bg-blue-600 transition-all duration-300"
+                  style={{ width: `${p.progressPercentage}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="mt-4 flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-700">
+              <button
+                onClick={() => setSelectedQr(p.id)}
+                className="text-xs font-medium text-blue-600 hover:underline dark:text-blue-400"
+              >
+                🔍 Tampilkan QR Code
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* QR Code Preview Modal */}
+      {selectedQr && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm rounded-xl bg-white p-6 text-center shadow-xl dark:bg-gray-800">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white">QR Code Proyek</h3>
+            <p className="text-xs text-gray-500 mt-1">Gunakan Token di bawah ini pada modal Clock-In</p>
+            
+            <div className="my-4 rounded-lg bg-gray-100 p-4 font-mono text-sm break-all dark:bg-gray-700 text-gray-800 dark:text-gray-200">
+              {selectedQr}
+            </div>
+
+            <button
+              onClick={() => setSelectedQr(null)}
+              className="w-full rounded-lg bg-gray-200 py-2 text-sm font-medium text-gray-800 hover:bg-gray-300 dark:bg-gray-700 dark:text-white"
+            >
+              Tutup
+            </button>
+          </div>
         </div>
       )}
     </div>
