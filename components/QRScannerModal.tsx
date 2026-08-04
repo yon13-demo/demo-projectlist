@@ -1,112 +1,87 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { X, AlertTriangle, Loader2 } from "lucide-react";
+import { useState } from "react";
+import { verifyQrToken } from "@/lib/qr";
 
 interface QRScannerModalProps {
-  open: boolean;
+  isOpen: boolean;
   onClose: () => void;
-  onScanSuccess: (decodedText: string) => Promise<void> | void;
+  onSuccess: (projectId: string) => void;
 }
 
-const SCANNER_ELEMENT_ID = "qr-scanner-viewport";
-
-export default function QRScannerModal({ open, onClose, onScanSuccess }: QRScannerModalProps) {
-  const scannerRef = useRef<import("html5-qrcode").Html5Qrcode | null>(null);
+export default function QRScannerModal({ isOpen, onClose, onSuccess }: QRScannerModalProps) {
+  const [tokenInput, setTokenInput] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (!open) return;
+  if (!isOpen) return null;
 
-    let cancelled = false;
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setIsSubmitting(true);
 
-    async function start() {
-      try {
-        // Dynamically imported so the ~200KB decoder never ships in the
-        // main bundle for users who never open the scanner.
-        const { Html5Qrcode } = await import("html5-qrcode");
-        if (cancelled) return;
-
-        const scanner = new Html5Qrcode(SCANNER_ELEMENT_ID);
-        scannerRef.current = scanner;
-
-        await scanner.start(
-          { facingMode: "environment" },
-          { fps: 10, qrbox: { width: 240, height: 240 } },
-          async (decodedText) => {
-            if (submitting) return;
-            setSubmitting(true);
-            try {
-              await scanner.stop();
-            } catch {
-              /* already stopped */
-            }
-            try {
-              await onScanSuccess(decodedText);
-            } catch (err) {
-              setError(err instanceof Error ? err.message : "Clock-in failed.");
-            } finally {
-              setSubmitting(false);
-            }
-          },
-          () => {
-            // Per-frame decode failures are expected while the camera
-            // hunts for a code — intentionally not surfaced as errors.
-          }
-        );
-      } catch (err) {
-        setError(
-          err instanceof Error
-            ? `Camera error: ${err.message}`
-            : "Could not access the camera. Check permissions and try again."
-        );
+    try {
+      const res = await verifyQrToken(tokenInput.trim());
+      
+      // ✅ Perbaikan: Memeriksa res.ok dan mengambil projectId dari res.payload
+      if (!res || !res.ok || !res.payload) {
+        setError(res?.error || "Token QR tidak valid atau sudah kadaluwarsa");
+        return;
       }
+
+      onSuccess(res.payload.projectId);
+      setTokenInput("");
+      onClose();
+    } catch (err) {
+      setError("Gagal memverifikasi token QR");
+    } finally {
+      setIsSubmitting(false);
     }
-
-    start();
-
-    return () => {
-      cancelled = true;
-      scannerRef.current
-        ?.stop()
-        .then(() => scannerRef.current?.clear())
-        .catch(() => {});
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
-
-  if (!open) return null;
+  };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center">
-      <div className="w-full max-w-sm rounded-t-2xl border border-border bg-surface p-4 sm:rounded-2xl">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="font-display text-lg">Scan station QR code</h2>
-          <button onClick={onClose} className="rounded-md p-1.5 text-text-muted hover:bg-surface-2">
-            <X size={18} />
-          </button>
-        </div>
-
-        <div className="qr-grid-bg relative overflow-hidden rounded-lg border border-border">
-          <div id={SCANNER_ELEMENT_ID} className="aspect-square w-full" />
-          {submitting && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-              <Loader2 className="animate-spin text-white" size={28} />
-            </div>
-          )}
-        </div>
-
-        {error && (
-          <div className="mt-3 flex items-start gap-2 rounded-md bg-danger/10 p-3 text-sm text-danger">
-            <AlertTriangle size={16} className="mt-0.5 shrink-0" />
-            <span>{error}</span>
-          </div>
-        )}
-
-        <p className="mt-3 text-center text-xs text-text-muted">
-          Codes refresh every 30–60s. If it fails, ask the station to refresh and rescan.
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800">
+        <h2 className="text-xl font-bold text-gray-900 dark:text-white">Scan / Input QR Token</h2>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          Masukkan token QR project untuk melakukan Clock-In.
         </p>
+
+        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              QR Token
+            </label>
+            <input
+              type="text"
+              value={tokenInput}
+              onChange={(e) => setTokenInput(e.target.value)}
+              placeholder="Paste QR Token di sini..."
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              required
+            />
+          </div>
+
+          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+
+          <div className="flex justify-end space-x-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              {isSubmitting ? "Verifikasi..." : "Clock In"}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
