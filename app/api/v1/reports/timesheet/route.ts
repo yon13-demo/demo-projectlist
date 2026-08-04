@@ -3,76 +3,77 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { auth, requireRole } from "@/lib/auth";
 
-// GET /api/v1/reports/timesheet?from=2026-07-01&to=2026-07-31&format=csv
-// Managers/Admins may pass ?userId= to pull another user's timesheet;
-// members are always restricted to their own sessions.
+// GET /api/v1/reports/timesheet?userId=...&format=json|csv
 export async function GET(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const check = await requireRole(["ADMIN" as const, "MANAGER" as const]);
+  if (!check.ok) {
+    return NextResponse.json({ error: check.message }, { status: check.status });
   }
 
   const { searchParams } = new URL(req.url);
+  const userId = searchParams.get("userId");
   const format = searchParams.get("format") ?? "json";
-  const from = searchParams.get("from");
-  const to = searchParams.get("to");
-  const requestedUserId = searchParams.get("userId");
 
-  let userId = session.user.id;
-  if (requestedUserId && requestedUserId !== session.user.id) {
-    if (session.user.role === "MEMBER") {
-      return NextResponse.json({ error: "Members can only view their own timesheet." }, { status: 403 });
-    }
-    userId = requestedUserId;
+  const where: Record<string, unknown> = {};
+  if (userId) {
+    where.userId = userId;
   }
 
-  const where: Record<string, unknown> = { userId, status: "COMPLETED" };
-  if (from || to) {
-    where.clockIn = {
-      ...(from ? { gte: new Date(from) } : {}),
-      ...(to ? { lte: new Date(to) } : {}),
-    };
-  }
-
-  const sessions = await prisma.session.findMany({
+  const sessions = await prisma.workSession.findMany({
     where,
     orderBy: { clockIn: "desc" },
-    include: { project: { select: { title: true, client: true } } },
+    include: {
+      project: {
+        select: {
+          title: true,
+          client: true,
+        },
+      },
+    },
   });
 
   type SessionRow = (typeof sessions)[number];
-  const totalMins = sessions.reduce((sum: number, s: SessionRow) => sum + (s.durationMins ?? 0), 0);
+
+  // Calculate durationMins dynamically from clockIn and clockOut
+  const sessionsWithDuration = sessions.map((s: SessionRow) => {
+    let durationMins = 0;
+    if (s.clockOut) {
+      const ms = new Date(s.clockOut).getTime() - new Date(s.clockIn).getTime();
+      durationMins = Math.floor(ms / (1000 * 60));
+    }
+    return {
+      ...s,
+      durationMins,
+    };
+  });
+
+  const totalMins = sessionsWithDuration.reduce((sum, s) => sum + s.durationMins, 0);
 
   if (format === "csv") {
-    const header = "Project,Client,Clock In,Clock Out,Duration (mins)";
-    const rows = sessions.map((s: SessionRow) =>
-      [
-        s.project.title,
-        s.project.client,
-        s.clockIn.toISOString(),
-        s.clockOut?.toISOString() ?? "",
-        String(s.durationMins ?? 0),
-      ]
-        .map((field) => `"${field.replace(/"/g, '""')}"`)
-        .join(",")
-    );
-    const csv = [header, ...rows, `,,,Total,${totalMins}`].join("\n");
+    const header = "Project,Client,Clock In,Clock Out,Duration (mins)\n";
+    const rows = sessionsWithDuration
+      .map((s) => {
+        const title = `"${s.project.title.replace(/"/g, '""')}"`;
+        const client = `"${(s.project.client ?? "").replace(/"/g, '""')}"`;
+        const clockIn = s.clockIn.toISOString();
+        const clockOut = s.clockOut ? s.clockOut.toISOString() : "";
+        return `${title},${client},${clockIn},${clockOut},${s.durationMins}`;
+      })
+      .join("\n");
 
-    return new NextResponse(csv, {
+    return new NextResponse(header + rows, {
       status: 200,
       headers: {
-        "Content-Type": "text/csv",
-        "Content-Disposition": `attachment; filename="timesheet-${userId}.csv"`,
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": 'attachment; filename="timesheet-report.csv"',
       },
     });
   }
 
   return NextResponse.json({
-    userId,
-    totalMinutes: totalMins,
-    totalHours: Math.round((totalMins / 60) * 100) / 100,
-    entries: sessions,
+    sessions: sessionsWithDuration,
+    totalMins,
   });
 }
