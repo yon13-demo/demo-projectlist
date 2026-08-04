@@ -24,8 +24,12 @@ export default function QRScannerModal({ open, onClose, onScanSuccess }: QRScann
     try {
       const res = await verifyQrToken(tokenInput.trim());
       
-      if (!res || !res.ok || !res.payload) {
-        setError(res?.error || "Token QR tidak valid atau sudah kadaluwarsa");
+      // Menggunakan discriminated union guard untuk menangani ketersediaan properti error
+      if (!res || !res.ok) {
+        const errorMessage = res && "error" in res && typeof res.error === "string" 
+          ? res.error 
+          : "Token QR tidak valid atau sudah kadaluwarsa";
+        setError(errorMessage);
         return;
       }
 
