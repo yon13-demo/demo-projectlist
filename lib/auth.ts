@@ -33,28 +33,28 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        // Gunakan field 'password' sesuai skema Prisma
+        // Ambil record user secara utuh tanpa 'select' terisolasi
         const user = await prisma.user.findUnique({
           where: { email: credentials.email },
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            password: true,
-            role: true,
-          },
         });
 
-        if (!user || !user.password) return null;
+        if (!user) return null;
 
-        const valid = await bcrypt.compare(credentials.password, user.password);
+        // Ambil string password/hash terdaftar secara fleksibel
+        const passwordInDb = (user as Record<string, unknown>).passwordHash ?? (user as Record<string, unknown>).password;
+        
+        if (typeof passwordInDb !== "string") {
+          return null;
+        }
+
+        const valid = await bcrypt.compare(credentials.password, passwordInDb);
         if (!valid) return null;
 
         return {
           id: user.id,
           name: user.name,
           email: user.email,
-          role: user.role as Role,
+          role: (user as Record<string, unknown>).role as Role,
         };
       },
     }),
