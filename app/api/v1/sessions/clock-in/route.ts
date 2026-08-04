@@ -26,8 +26,8 @@ export async function POST(req: NextRequest) {
   }
 
   const { qrToken, deviceInfo } = parsed.data;
-  const qrData = await verifyQrToken(qrToken);
-  if (!qrData) {
+  const qrResult = await verifyQrToken(qrToken);
+  if (!qrResult || !qrResult.ok) {
     return NextResponse.json({ error: "Invalid or expired QR code" }, { status: 400 });
   }
 
@@ -48,9 +48,9 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Find target project
+  // Find target project using payload.projectId
   const project = await prisma.project.findUnique({
-    where: { id: qrData.projectId },
+    where: { id: qrResult.payload.projectId },
   });
 
   if (!project) {
