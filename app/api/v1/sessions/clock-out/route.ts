@@ -5,43 +5,42 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { clearUserActive } from "@/lib/kv";
 
 const clockOutSchema = z.object({
-  completedTaskIds: z.array(z.string().uuid()).optional().default([]),
+  completedTaskIds: z.array(z.string()).optional().default([]),
 });
 
+// POST /api/v1/sessions/clock-out
 export async function POST(req: NextRequest) {
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
+
   const userId = session.user.id;
+
+  const activeSession = await prisma.session.findFirst({
+    where: {
+      userId,
+      status: "ACTIVE",
+    },
+  });
+
+  if (!activeSession) {
+    return NextResponse.json({ error: "No active session found" }, { status: 404 });
+  }
 
   const body = await req.json().catch(() => ({}));
   const parsed = clockOutSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
-  }
-  const { completedTaskIds } = parsed.data;
-
-  const activeSession = await prisma.session.findFirst({
-    where: { userId, status: "ACTIVE" },
-  });
-  if (!activeSession) {
-    return NextResponse.json({ error: "No active session to clock out of." }, { status: 404 });
-  }
+  const completedTaskIds = parsed.success ? parsed.data.completedTaskIds : [];
 
   const clockOut = new Date();
-  const durationMins = Math.max(
-    0,
-    Math.round((clockOut.getTime() - activeSession.clockIn.getTime()) / 60000)
-  );
 
+  // Execute database operations in a transaction
   const [updatedSession] = await prisma.$transaction([
     prisma.session.update({
       where: { id: activeSession.id },
-      data: { clockOut, durationMins, status: "COMPLETED" },
+      data: { clockOut, status: "COMPLETED" },
     }),
     ...(completedTaskIds.length > 0
       ? [
@@ -49,7 +48,6 @@ export async function POST(req: NextRequest) {
             where: {
               id: { in: completedTaskIds },
               projectId: activeSession.projectId,
-              assignedUserId: userId,
             },
             data: { isCompleted: true },
           }),
@@ -57,24 +55,14 @@ export async function POST(req: NextRequest) {
       : []),
   ]);
 
-  await clearUserActive(userId);
+  // Calculate duration in minutes for response payload
+  const durationMs = clockOut.getTime() - new Date(activeSession.clockIn).getTime();
+  const durationMins = Math.floor(durationMs / (1000 * 60));
 
-  // Recompute project progress from task completion ratio.
-  const tasks = await prisma.task.findMany({
-    where: { projectId: activeSession.projectId },
-    select: { isCompleted: true },
+  return NextResponse.json({
+    session: {
+      ...updatedSession,
+      durationMins,
+    },
   });
-  if (tasks.length > 0) {
-    const progressPercentage = Math.round(
-      (tasks.filter((t: { isCompleted: boolean }) => t.isCompleted).length / tasks.length) * 100
-    );
-    await prisma.project.update({
-      where: { id: activeSession.projectId },
-      data: { progressPercentage },
-    });
-  }
-
-  // await pusher.trigger("activity-feed", "clock-out", { userId, ... });
-
-  return NextResponse.json({ session: updatedSession });
 }
