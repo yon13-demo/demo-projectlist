@@ -4,17 +4,17 @@ import { useState } from "react";
 import { verifyQrToken } from "@/lib/qr";
 
 interface QRScannerModalProps {
-  isOpen: boolean;
+  open: boolean;
   onClose: () => void;
-  onSuccess: (projectId: string) => void;
+  onScanSuccess: (projectId: string) => Promise<void> | void;
 }
 
-export default function QRScannerModal({ isOpen, onClose, onSuccess }: QRScannerModalProps) {
+export default function QRScannerModal({ open, onClose, onScanSuccess }: QRScannerModalProps) {
   const [tokenInput, setTokenInput] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  if (!isOpen) return null;
+  if (!open) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,13 +24,12 @@ export default function QRScannerModal({ isOpen, onClose, onSuccess }: QRScanner
     try {
       const res = await verifyQrToken(tokenInput.trim());
       
-      // ✅ Perbaikan: Memeriksa res.ok dan mengambil projectId dari res.payload
       if (!res || !res.ok || !res.payload) {
         setError(res?.error || "Token QR tidak valid atau sudah kadaluwarsa");
         return;
       }
 
-      onSuccess(res.payload.projectId);
+      await onScanSuccess(res.payload.projectId);
       setTokenInput("");
       onClose();
     } catch (err) {
