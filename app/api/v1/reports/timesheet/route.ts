@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { auth, requireRole } from "@/lib/auth";
+import { requireRole } from "@/lib/auth";
 
 // GET /api/v1/reports/timesheet?userId=...&format=json|csv
 export async function GET(req: NextRequest) {
@@ -21,7 +21,8 @@ export async function GET(req: NextRequest) {
     where.userId = userId;
   }
 
-  const sessions = await prisma.workSession.findMany({
+  // ✅ Diubah dari prisma.workSession menjadi prisma.session
+  const sessions = await prisma.session.findMany({
     where,
     orderBy: { clockIn: "desc" },
     include: {
