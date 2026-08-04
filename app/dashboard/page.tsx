@@ -1,110 +1,77 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import DashboardHeader from "@/components/DashboardHeader";
-import StatCards from "@/components/StatCards";
+import { useState, useEffect } from "react";
 import ProjectList from "@/components/ProjectList";
 import QRScannerModal from "@/components/QRScannerModal";
-import LiveTimerBadge from "@/components/LiveTimerBadge";
-import type { ProjectSummary, ActiveWorkSession, DashboardStats } from "@/lib/types";
-
-async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, init);
-  const data = await res.json();
-  if (!res.ok) {
-    throw new Error(data?.error ?? `Request to ${url} failed`);
-  }
-  return data as T;
-}
 
 export default function DashboardPage() {
-  const [projects, setProjects] = useState<ProjectSummary[]>([]);
-  const [activeSession, setActiveSession] = useState<ActiveWorkSession | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [banner, setBanner] = useState<{ tone: "success" | "danger"; text: string } | null>(null);
 
-  const refresh = useCallback(async () => {
-    const [{ projects }, { session }] = await Promise.all([
-      fetchJson<{ projects: ProjectSummary[] }>("/api/v1/projects"),
-      fetchJson<{ session: ActiveWorkSession | null }>("/api/v1/sessions/active"),
-    ]);
-    setProjects(projects);
-    setActiveSession(session);
-  }, []);
+  const fetchProjects = async () => {
+    try {
+      const res = await fetch("/api/v1/projects");
+      if (res.ok) {
+        const data = await res.json();
+        setProjects(data.projects || []);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    refresh()
-      .catch((err) => setBanner({ tone: "danger", text: err.message }))
-      .finally(() => setLoading(false));
-  }, [refresh]);
+    fetchProjects();
+  }, []);
 
-  async function handleScanSuccess(decodedText: string) {
-    await fetchJson<{ session: ActiveWorkSession }>("/api/v1/sessions/clock-in", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ qrToken: decodedText, deviceInfo: navigator.userAgent }),
-    });
-    setScannerOpen(false);
-    setBanner({ tone: "success", text: "Clocked in — timer is running." });
-    await refresh();
-  }
-
-  async function handleClockOut() {
+  const handleScanSuccess = async (projectId: string) => {
     try {
-      await fetchJson("/api/v1/sessions/clock-out", {
+      const res = await fetch("/api/v1/sessions/clock-in", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ qrToken: projectId }),
       });
-      setBanner({ tone: "success", text: "Clocked out. Nice work." });
-      await refresh();
-    } catch (err) {
-      setBanner({ tone: "danger", text: err instanceof Error ? err.message : "Clock-out failed." });
-    }
-  }
 
-  const stats: DashboardStats = {
-    totalProjects: projects.length,
-    activeSessions: projects.reduce((sum, p) => sum + p.activeWorkerCount, 0),
-    completedTasks: projects.reduce((sum, p) => sum + p.completedTaskCount, 0),
-    totalHoursLogged: 0, // populate from /api/v1/reports/timesheet aggregate if surfaced here
+      if (res.ok) {
+        alert("Berhasil Clock-In ke Proyek: " + projectId);
+        fetchProjects();
+      } else {
+        const err = await res.json();
+        alert(err.error || "Gagal Clock-In");
+      }
+    } catch (e) {
+      alert("Terjadi kesalahan jaringan");
+    }
   };
 
   return (
-    <div className="min-h-screen bg-bg pb-24">
-      <DashboardHeader userName="there" onOpenScanner={() => setScannerOpen(true)} />
+    <div className="min-h-screen bg-gray-50 p-6 dark:bg-gray-900">
+      <div className="mx-auto max-w-5xl space-y-8">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Dashboard Absensi</h1>
+          <p className="mt-1 text-gray-500 dark:text-gray-400">
+            Kelola sesi kerja proyek, absensi via QR, dan pantau progres proyek secara langsung.
+          </p>
+        </div>
 
-      <main className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6">
-        {banner && (
-          <div
-            className={`rounded-md px-4 py-3 text-sm ${
-              banner.tone === "success" ? "bg-success/10 text-success" : "bg-danger/10 text-danger"
-            }`}
-          >
-            {banner.text}
-          </div>
+        {loading ? (
+          <p className="text-gray-500">Memuat data proyek...</p>
+        ) : (
+          <ProjectList
+            projects={projects}
+            onOpenScanner={() => setScannerOpen(true)}
+          />
         )}
 
-        <StatCards stats={stats} />
-
-        <section>
-          <h2 className="mb-3 font-display text-xl">Projects</h2>
-          {loading ? (
-            <p className="text-sm text-text-muted">Loading projects…</p>
-          ) : (
-            <ProjectList projects={projects} />
-          )}
-        </section>
-      </main>
-
-      <QRScannerModal
-        open={scannerOpen}
-        onClose={() => setScannerOpen(false)}
-        onScanSuccess={handleScanSuccess}
-      />
-
-      {activeSession && <LiveTimerBadge session={activeSession} onClockOut={handleClockOut} />}
+        <QRScannerModal
+          open={scannerOpen}
+          onClose={() => setScannerOpen(false)}
+          onScanSuccess={handleScanSuccess}
+        />
+      </div>
     </div>
   );
 }
