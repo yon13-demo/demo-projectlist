@@ -33,21 +33,21 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        // Sertakan passwordHash dan role dalam query/select
+        // Gunakan field 'password' sesuai skema Prisma
         const user = await prisma.user.findUnique({
           where: { email: credentials.email },
           select: {
             id: true,
             name: true,
             email: true,
-            passwordHash: true,
+            password: true,
             role: true,
           },
         });
 
-        if (!user || !user.passwordHash) return null;
+        if (!user || !user.password) return null;
 
-        const valid = await bcrypt.compare(credentials.password, user.passwordHash);
+        const valid = await bcrypt.compare(credentials.password, user.password);
         if (!valid) return null;
 
         return {
@@ -77,7 +77,6 @@ export const authOptions: NextAuthOptions = {
   },
 };
 
-// Helper exports if used elsewhere
 export async function auth() {
   const { getServerSession } = await import("next-auth");
   return getServerSession(authOptions);
