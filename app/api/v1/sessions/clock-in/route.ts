@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { qrToken, deviceInfo } = parsed.data;
+  const { qrToken } = parsed.data;
   const qrResult = await verifyQrToken(qrToken);
   if (!qrResult || !qrResult.ok) {
     return NextResponse.json({ error: "Invalid or expired QR code" }, { status: 400 });
@@ -62,7 +62,6 @@ export async function POST(req: NextRequest) {
     data: {
       userId,
       projectId: project.id,
-      deviceInfo: deviceInfo ?? req.headers.get("user-agent") ?? undefined,
       status: "ACTIVE",
     },
     include: {
