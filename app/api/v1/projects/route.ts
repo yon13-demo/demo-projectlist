@@ -52,18 +52,24 @@ export async function GET(req: NextRequest) {
   });
 
   type ProjectRow = (typeof projects)[number];
-  const shaped = projects.map((p: ProjectRow) => ({
-    id: p.id,
-    title: p.title,
-    client: p.client,
-    status: p.status,
-    priority: p.priority,
-    progressPercentage: p.progressPercentage,
-    createdAt: p.createdAt,
-    taskCount: p.tasks.length,
-    completedTaskCount: p.tasks.filter((t: { isCompleted: boolean }) => t.isCompleted).length,
-    activeWorkerCount: p.workSessions.length,
-  }));
+  const shaped = projects.map((p: ProjectRow) => {
+    const taskCount = p.tasks.length;
+    const completedTaskCount = p.tasks.filter((t: { isCompleted: boolean }) => t.isCompleted).length;
+    const progressPercentage = taskCount > 0 ? Math.round((completedTaskCount / taskCount) * 100) : 0;
+
+    return {
+      id: p.id,
+      title: p.title,
+      client: p.client,
+      status: p.status,
+      priority: p.priority,
+      progressPercentage,
+      createdAt: p.createdAt,
+      taskCount,
+      completedTaskCount,
+      activeWorkerCount: p.workSessions.length,
+    };
+  });
 
   return NextResponse.json({ projects: shaped });
 }
