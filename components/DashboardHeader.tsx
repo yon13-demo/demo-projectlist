@@ -42,7 +42,7 @@ export default function DashboardHeader({
           <Menu size={20} />
         </button>
         <div>
-          <p className="font-display text-lg leading-none tracking-tight">Site Ledger</p>
+          <p className="font-display text-lg leading-none tracking-tight">Weaver</p>
           <p className="text-xs text-text-muted">Welcome back, {userName}</p>
         </div>
       </div>
